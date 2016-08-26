@@ -1,6 +1,8 @@
 import datetime;
 import tushare as ts;
 
+info = ts.get_stock_basics();
+
 class StockList:
     def __init__(self, l):
         self.__list = l;
@@ -8,46 +10,43 @@ class StockList:
     def filter(self, strategy):
         return StockList(filter(strategy, self.__list));
 
+    def println(self):
+        for code in self.__list:
+            print code + " " + info.name[code];
+
 
 def get_full_stock_list():
-    info = ts.get_stock_basics();
     return StockList(sorted(info.index));
 
+class Strategis:
+    def __init__(self):
+        self.strategis = [];
 
-def latest_drop_in_days_greater(days, percentage):
-    now = datetime.datetime.now();
-    delta = datetime.timedelta(days=days);
-    before = now - delta;
-    time_before = before.strftime("%Y-%m-%d");
-    def func(code):
-        d = ts.get_hist_data(code, time_before);
-        if (d.size):
-            close_price = d['close'][0];
-            open_price  = d['open'][-1];
-            print "Processing " + code + " open: " + str(open_price) + " close: " + str(close_price);
-            percent = (close_price - open_price) / open_price;
-            if percent < percentage:
-                print " OK";
-                return True;
-        return False;
-    return func;
+    def add(self, strategy):
+        self.strategis.append(strategy);
 
-
-def latest_gain_in_days_range(days, percentage_min, percentage_max):
-    now = datetime.datetime.now();
-    delta = datetime.timedelta(days=days);
-    before = now - delta;
-    time_before = before.strftime("%Y-%m-%d");
-    def func(code):
-        d = ts.get_hist_data(code, time_before);
-        if (d.size):
-            close_price = d['close'][0];
-            open_price = d['open'][-1];
-            print "Processing " + code + " open: " + str(open_price) + " close: " + str(close_price);
-            percent = (close_price - open_price) / open_price;
-            if percent > percentage_min and percent < percentage_max:
-                print " OK";
-                return True;
-        return False;
-    return func;
-    
+    def extract(self):
+        def func(code):
+            data = {};
+            print ".",
+            import sys
+            sys.stdout.flush()
+            for strategy in self.strategis:
+                if (not data.has_key(strategy.ktype)):
+                    if (strategy.ktype != 'D'):
+                        data[strategy.ktype] = ts.get_hist_data(code=code, ktype=strategy.ktype, autype="qfq");
+                    else:
+                        data[strategy.ktype] = ts.get_h_data(code=code, autype="qfq");
+                    if (isinstance(data[strategy.ktype], type(None))):
+                        del data
+                        return False;
+                if (not strategy.func(data[strategy.ktype])):
+                    del data;
+                    return False;
+            del data;
+            print "\n" + code + " " + info.name[code],
+            import sys
+            sys.stdout.flush()
+            return True;
+        self.func = func;
+        return func;
